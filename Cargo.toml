@@ -1,0 +1,22 @@
+[package]
+name = "sockeye"
+version = "0.1.0"
+edition = "2018"
+
+[features]
+default = ["logging"]
+logging = []
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-trait = "0.1"
+rand = "0.8"
+lazy_static = "1"
+env_logger = "0.9"
+obfstr = "0.3"
+log = "0.4"
+regex = "1"
+tokio = {version = "1", features=["rt-multi-thread", "macros"]}
+async-scoped = {version = "0.7", features=["use-tokio"]}
+reqwest = {version = "0.11", features=["socks"]}
