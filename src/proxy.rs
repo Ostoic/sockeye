@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use std::time::{Duration, Instant};
 use reqwest::StatusCode;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, min};
 use std::error::Error;
 use crate::utility::BoxError;
 use crate::random_user_agent;
@@ -98,19 +98,19 @@ impl ProxyManager {
 
         #[cfg(feature = "logging")]
         log::debug!("test: {:?}", test);
-        // self.import(test.clone());
         return Ok(test);
     }
 
     pub async fn test_proxies(proxies: &Vec<(Ipv4Addr, u16)>) -> Result<Vec<ProxyTest>, Box<dyn Error>> {
         #[cfg(feature = "logging")]
-        log::info!("testing proxies: {:?}", proxies);
+        log::info!("testing {} proxies: {:?}", proxies.len(), proxies);
         let proxied_ips: Arc<Mutex<Vec<ProxyTest>>> = Arc::new(Mutex::new(Vec::new()));
 
-        const CONCURRENCY: usize = 300;
+        const CONCURRENCY: usize = 20;
         for i in (0..proxies.len()).filter(|x| x % CONCURRENCY == 0) {
+            log::debug!("[ProxyManager::test_proxies] {}", i);
             async_scoped::TokioScope::scope_and_block(|s| {
-                for j in i..(i + CONCURRENCY) % proxies.len() {
+                for j in i..min(i + CONCURRENCY, proxies.len()) {
                     let proxy = proxies[j];
                     let proxied_ips_ref = &proxied_ips;
 

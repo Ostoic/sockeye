@@ -13,8 +13,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>>  {
     log::info!("Hello!");
 
     let crawler
-        = sockeye::DDGCrawler::new(reqwest::Client::builder());
-        // = sockeye::DDGCrawler::from_proxy(reqwest::Proxy::all("socks5://10.179.205.104:9050").unwrap());
+        // = sockeye::DDGCrawler::new(reqwest::Client::builder());
+        = sockeye::DDGCrawler::from_proxy(reqwest::Proxy::all("socks5://10.179.205.104:9050").unwrap());
 
     let proxies = match crawler.crawl("free proxy list", 10).await {
         Ok(proxies) => Option::Some(proxies),
