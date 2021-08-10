@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProxyTest {
     pub proxy: (Ipv4Addr, u16),
+    pub protocol: SupportedProtocols,
     pub status: StatusCode,
     pub text: String,
     pub time: Instant,
@@ -35,6 +36,7 @@ pub struct ProxyManager {
     proxies: Vec<ProxyTest>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SupportedProtocols {
     Http, Socks5
 }
@@ -66,11 +68,8 @@ impl ProxyManager {
         self.proxies.push(test);
     }
 
-    pub async fn test_proxy(protocol: &SupportedProtocols, proxy: &(Ipv4Addr, u16)) -> Result<ProxyTest, Box<dyn Error>> {
+    pub async fn test_proxy(protocol: &SupportedProtocols, proxy: &(Ipv4Addr, u16)) -> Result<ProxyTest, Box<dyn Error + Send + Sync>> {
         let scheme = std::format!("{}://{}:{}", protocol.to_string(), proxy.0, proxy.1);
-        #[cfg(feature = "logging")]
-        log::debug!("Proxy scheme: {}", scheme);
-
         let client = reqwest::Client::builder().proxy(
             reqwest::Proxy::all(scheme)?
         ).build()?;
@@ -87,11 +86,9 @@ impl ProxyManager {
         let text = response.text().await?;
         let rtt = Instant::now().duration_since(before_get);
 
-        #[cfg(feature = "logging")]
-        log::debug!("response: {:?}", status);
-
         let test = ProxyTest{
             proxy: proxy.clone(),
+            protocol: protocol.clone(),
             time: Instant::now(),
             status, text, rtt
         };
@@ -101,7 +98,7 @@ impl ProxyManager {
         return Ok(test);
     }
 
-    pub async fn test_proxies(proxies: &Vec<(Ipv4Addr, u16)>) -> Result<Vec<ProxyTest>, Box<dyn Error>> {
+    pub async fn test_proxies(proxies: &Vec<(Ipv4Addr, u16)>) -> Result<Vec<ProxyTest>, Box<dyn Error + Send + Sync>> {
         #[cfg(feature = "logging")]
         log::info!("testing {} proxies: {:?}", proxies.len(), proxies);
         let proxied_ips: Arc<Mutex<Vec<ProxyTest>>> = Arc::new(Mutex::new(Vec::new()));
@@ -118,17 +115,15 @@ impl ProxyManager {
                     log::debug!("[ProxyManager::test_proxies] Spawned task {}", j);
                     s.spawn(async move {
                         tokio::time::sleep(Duration::from_millis((j * 10) as u64)).await;
-                        let mut socks_test: Option<ProxyTest> = None;
-                        match ProxyManager::test_proxy(&SupportedProtocols::Socks5, &proxy).await {
-                            Ok(test) => {socks_test = Some(test);},
-                            Err(_) => {}
-                        }
+                        let socks_test= match ProxyManager::test_proxy(&SupportedProtocols::Socks5, &proxy).await {
+                            Ok(test) => Some(test),
+                            Err(_) => None
+                        };
 
-                        let mut http_test: Option<ProxyTest> = None;
-                        match ProxyManager::test_proxy(&SupportedProtocols::Http, &proxy).await {
-                            Ok(test) => { http_test = Some(test);},
-                            Err(_) => {}
-                        }
+                        let http_test = match ProxyManager::test_proxy(&SupportedProtocols::Http, &proxy).await {
+                            Ok(test) => Some(test),
+                            Err(_) => None
+                        };
 
                         {
                             if socks_test.is_some() {

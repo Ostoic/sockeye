@@ -1,11 +1,10 @@
 use reqwest::{Url, StatusCode};
-use std::net::{Ipv4Addr, AddrParseError};
+use std::net::Ipv4Addr;
 use std::time::Duration;
 use std::str::FromStr;
 use regex::Regex;
 use crate::random_user_agent;
 use std::error::Error;
-use std::num::ParseIntError;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -36,18 +35,18 @@ impl Iterator for SearchResultPages {
 
 #[async_trait::async_trait]
 pub trait SearchEngine {
-    async fn search_n(&mut self, text: &str, page: u16) -> Result<SearchResult, Box<dyn Error>>;
-    async fn search(&mut self, text: &str) -> Result<SearchResult, Box<dyn Error>>;
-    async fn scrape(&mut self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error>>;
+    async fn search_n(&mut self, text: &str, page: u16) -> Result<SearchResult, Box<dyn Error + Send + Sync>>;
+    async fn search(&mut self, text: &str) -> Result<SearchResult, Box<dyn Error + Send + Sync>>;
+    async fn scrape(&mut self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error + Send + Sync>>;
 }
 
 // for sync issues: #[async_trait::async_trait(?Send)]
 #[async_trait::async_trait]
 pub trait Crawler {
-    async fn search(&self, text: &str) -> Result<Vec<Url>, Box<dyn Error>>;
-    async fn scrape_proxies(&self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error>>;
+    async fn search(&self, text: &str) -> Result<Vec<Url>, Box<dyn Error + Send + Sync>>;
+    async fn scrape_proxies(&self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error + Send + Sync>>;
 
-    async fn crawl(&self, search_term: &str, limit: usize) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error>>  {
+    async fn crawl(&self, search_term: &str, limit: usize) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error + Send + Sync>>  {
         #[cfg(feature = "logging")]
         log::debug!("Crawler starting: {}", search_term);
 
@@ -127,11 +126,11 @@ pub fn parse_basic_proxy_pair(text: &str) -> Vec<(Ipv4Addr, u16)> {
     return proxy_pairs;
 }
 
-pub async fn public_ip() -> Result<(StatusCode, String), Box<dyn Error>> {
+pub async fn public_ip() -> Result<(StatusCode, String), Box<dyn Error + Send + Sync>> {
     return public_ip_from(&reqwest::ClientBuilder::new().build()?).await;
 }
 
-pub async fn public_ip_from(builder: &reqwest::Client) -> Result<(StatusCode, String), Box<dyn Error>> {
+pub async fn public_ip_from(builder: &reqwest::Client) -> Result<(StatusCode, String), Box<dyn Error + Send + Sync>> {
     let response = builder
         .get(obfstr::obfstr!("https://api.ipify.org/"))
         .header(obfstr::obfstr!("User-Agent"), random_user_agent())
@@ -160,7 +159,7 @@ mod tests {
     use std::error::Error;
 
     #[test]
-    fn test_parse_basic_proxy_pair() -> Result<(), Box<dyn Error>> {
+    fn test_parse_basic_proxy_pair() -> Result<(), Box<dyn Error + Send + Sync>> {
         let test_string = r#"127.0.0.1:8080
         192.168.1.1:1234"#;
         assert_eq!(

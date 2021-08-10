@@ -8,16 +8,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>>  {
     let env = Env::default()
         .filter_or("MY_LOG_LEVEL", "debug")
         .write_style_or("MY_LOG_STYLE", "always");
-
     env_logger::init_from_env(env);
-    log::info!("Hello!");
 
     let crawler
         // = sockeye::DDGCrawler::new(reqwest::Client::builder());
         = sockeye::DDGCrawler::from_proxy(reqwest::Proxy::all("socks5://10.179.205.104:9050").unwrap());
 
-    let proxies = match crawler.crawl("free proxy list", 10).await {
-        Ok(proxies) => Option::Some(proxies),
+    let proxies = match crawler.crawl("free proxy list", 100).await {
+        Ok(proxies) => Some(proxies),
         Err(_) => None
     };
 

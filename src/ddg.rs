@@ -8,7 +8,7 @@ use crate::proxy::ProxyManager;
 use crate::{random_user_agent, Crawler};
 use crate::crawler::parse_basic_proxy_pair;
 
-fn filter_result_urls<F>(text: &str, pred: F) -> Result<Vec<reqwest::Url>, Box<dyn Error>>
+fn filter_result_urls<F>(text: &str, pred: F) -> Result<Vec<reqwest::Url>, Box<dyn Error + Send + Sync>>
     where F: Fn(&Url) -> bool {
     lazy_static::lazy_static! {
         static ref DDG_RESULT_PATTERN: Regex
@@ -26,7 +26,7 @@ fn filter_result_urls<F>(text: &str, pred: F) -> Result<Vec<reqwest::Url>, Box<d
     return Ok(urls);
 }
 
-fn parse_result_urls(text: &str) -> Result<Vec<reqwest::Url>, Box<dyn Error>>{
+fn parse_result_urls(text: &str) -> Result<Vec<reqwest::Url>, Box<dyn Error + Send + Sync>>{
     return filter_result_urls(text, |_| -> bool {true});
 }
 
@@ -54,7 +54,7 @@ impl DDGCrawler {
         );
     }
 
-    pub async fn public_ip(&mut self) -> Result<String, Box<dyn Error>> {
+    pub async fn public_ip(&mut self) -> Result<String, Box<dyn Error + Send + Sync>> {
         let ip = self.web.get(obfstr::obfstr!("https://api.ipify.org/"))
             .header(obfstr::obfstr!("User-Agent"), random_user_agent())
             .header(obfstr::obfstr!("Content-Type"), obfstr::obfstr!("application/x-www-form-urlencoded"))
@@ -71,7 +71,7 @@ impl DDGCrawler {
 // for sync issues: #[async_trait::async_trait(?Send)]
 #[async_trait::async_trait]
 impl Crawler for DDGCrawler {
-    async fn search(&self, text: &str) -> Result<Vec<reqwest::Url>, Box<dyn Error>> {
+    async fn search(&self, text: &str) -> Result<Vec<reqwest::Url>, Box<dyn Error + Send + Sync>> {
         let body = std::format!("q={}", text.replace(" ", "+"));
         log::debug!("body: {}", body);
 
@@ -83,7 +83,6 @@ impl Crawler for DDGCrawler {
             .timeout(self.timeout)
             .send().await?;
 
-        log::debug!("response: {:?}", response.status());
         let text = response.text().await?;
 
         log::debug!("text: {:?}", text);
@@ -93,7 +92,7 @@ impl Crawler for DDGCrawler {
         })?);
     }
 
-    async fn scrape_proxies(&self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error>> {
+    async fn scrape_proxies(&self, url: &Url) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error + Send + Sync>> {
         let response = self.web.get(url.as_str())
             .header(obfstr::obfstr!("User-Agent"), random_user_agent())
             .header(obfstr::obfstr!("Content-Type"), obfstr::obfstr!("application/x-www-form-urlencoded"))
@@ -101,7 +100,6 @@ impl Crawler for DDGCrawler {
             .timeout(self.timeout)
             .send().await?;
 
-        log::debug!("response: {:?}", response.status());
         let proxy_pairs = parse_proxy_pairs(response.text().await?.as_str())?;
         return Ok(proxy_pairs);
     }
@@ -139,7 +137,7 @@ fn parse_html_proxy_pair(text: &str) -> Vec<(Ipv4Addr, u16)> {
     return proxy_pairs;
 }
 
-fn parse_proxy_pairs(text: &str) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error>> {
+fn parse_proxy_pairs(text: &str) -> Result<Vec<(Ipv4Addr, u16)>, Box<dyn Error + Send + Sync>> {
     let mut proxy_pairs: Vec<(Ipv4Addr, u16)> = Vec::new();
     proxy_pairs.extend(parse_basic_proxy_pair(text));
     proxy_pairs.extend(parse_html_proxy_pair(text));
@@ -173,7 +171,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_result_urls() -> Result<(), Box<dyn Error>>  {
+    fn test_parse_result_urls() -> Result<(), Box<dyn Error + Send + Sync>>  {
         let html = r#"
  <tr>
     <td valign="top">4.&nbsp;</td>

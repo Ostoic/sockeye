@@ -9,18 +9,18 @@ logging = []
 
 [profile.release]
 lto             = true
-#panic           = "abort"
+panic           = "abort"
 codegen-units   = 1
-opt-level       = 'z'
+opt-level       = 's'
 
 [dependencies]
-async-trait = "0.1"
-rand = "0.8"
-lazy_static = "1"
-env_logger = "0.9"
-obfstr = "0.3"
-log = "0.4"
-regex = "1"
-tokio = {version = "1", features=["rt-multi-thread", "macros"]}
-async-scoped = {version = "0.7", features=["use-tokio"]}
-reqwest = {version = "0.11", features=["socks"]}
+async-trait = "*"
+rand = "*"
+lazy_static = "*"
+env_logger = "*"
+obfstr = "*"
+log = "*"
+regex = "*"
+tokio = {version = "*", features=["rt-multi-thread", "macros"]}
+async-scoped = {version = "*", features=["use-tokio"]}
+reqwest = {version = "*", features=["socks"]}
